@@ -60,11 +60,10 @@ public class BaseScreen extends Screen {
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        renderBackground(ctx);
+        super.render(ctx, mouseX, mouseY, delta);
         ctx.drawCenteredTextWithShadow(textRenderer, title, width / 2, height / 2 - 85, 0xFFFFFF);
         ctx.drawTextWithShadow(textRenderer, "Temat ntfy (aplikacja na telefon):", width / 2 - 100, height / 2 + 30, 0xAAAAAA);
         String status = BaseConfig.hasBase() ? "§aBaza zaznaczona" : "§cBaza niezaznaczona";
         ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(status), width / 2, height / 2 + 90, 0xFFFFFF);
-        super.render(ctx, mouseX, mouseY, delta);
     }
 }

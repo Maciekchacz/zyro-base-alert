@@ -38,7 +38,7 @@ public class BaseAlertClient implements ClientModInitializer {
 
         // Prawy klik w blok podczas zaznaczania bazy
         UseBlockCallback.EVENT.register((player, world, hand, hit) -> {
-            if (!world.isClient || step == 0 || hand != Hand.MAIN_HAND) return ActionResult.PASS;
+            if (!world.isClient() || step == 0 || hand != Hand.MAIN_HAND) return ActionResult.PASS;
             BlockPos p = hit.getBlockPos();
             if (step == 1) {
                 BaseConfig.pos1 = p;
