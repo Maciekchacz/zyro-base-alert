@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "zyrobase",
+  "version": "${version}",
+  "name": "Zyro Base Alert",
+  "description": "Zaznacz bazę i dostawaj powiadomienia na telefon, gdy ktoś się zbliży.",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["pl.zyro.basealert.BaseAlertClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "1.20.1",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}
