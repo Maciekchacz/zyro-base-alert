@@ -8,16 +8,19 @@ import net.minecraft.text.Text;
 
 public class BaseScreen extends Screen {
     private TextFieldWidget topicField;
-    private ButtonWidget toggleButton;
 
     public BaseScreen() {
         super(Text.literal("Zyro Base Alert"));
     }
 
+    private static Text onOff(String label, boolean value) {
+        return Text.literal(label + ": " + (value ? "WŁĄCZONE" : "WYŁĄCZONE"));
+    }
+
     @Override
     protected void init() {
         int cx = this.width / 2;
-        int y = this.height / 2 - 60;
+        int s = this.height / 2 - 100;
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Zaznacz bazę"), b -> {
             BaseAlertClient.step = 1;
@@ -25,22 +28,34 @@ public class BaseScreen extends Screen {
             BaseConfig.pos2 = null;
             close();
             BaseAlertClient.msg("§aKliknij PRAWYM przyciskiem GÓRNY róg swojej bazy.");
-        }).dimensions(cx - 100, y, 200, 20).build());
+        }).dimensions(cx - 100, s, 200, 20).build());
 
-        toggleButton = addDrawableChild(ButtonWidget.builder(toggleText(), b -> {
+        addDrawableChild(ButtonWidget.builder(onOff("Alerty", BaseConfig.enabled), b -> {
             BaseConfig.enabled = !BaseConfig.enabled;
-            b.setMessage(toggleText());
+            b.setMessage(onOff("Alerty", BaseConfig.enabled));
             BaseConfig.save();
-        }).dimensions(cx - 100, y + 28, 200, 20).build());
+        }).dimensions(cx - 100, s + 22, 200, 20).build());
+
+        addDrawableChild(ButtonWidget.builder(onOff("Zdjęcie gracza (skin)", BaseConfig.skinPhoto), b -> {
+            BaseConfig.skinPhoto = !BaseConfig.skinPhoto;
+            b.setMessage(onOff("Zdjęcie gracza (skin)", BaseConfig.skinPhoto));
+            BaseConfig.save();
+        }).dimensions(cx - 100, s + 44, 200, 20).build());
+
+        addDrawableChild(ButtonWidget.builder(onOff("Zrzut ekranu z gry", BaseConfig.screenshot), b -> {
+            BaseConfig.screenshot = !BaseConfig.screenshot;
+            b.setMessage(onOff("Zrzut ekranu z gry", BaseConfig.screenshot));
+            BaseConfig.save();
+        }).dimensions(cx - 100, s + 66, 200, 20).build());
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Usuń zaznaczoną bazę"), b -> {
             BaseConfig.pos1 = null;
             BaseConfig.pos2 = null;
             BaseConfig.save();
             BaseAlertClient.msg("§eBaza usunięta.");
-        }).dimensions(cx - 100, y + 56, 200, 20).build());
+        }).dimensions(cx - 100, s + 88, 200, 20).build());
 
-        topicField = new TextFieldWidget(this.textRenderer, cx - 100, y + 100, 200, 20, Text.literal("temat"));
+        topicField = new TextFieldWidget(this.textRenderer, cx - 100, s + 124, 200, 20, Text.literal("temat"));
         topicField.setMaxLength(64);
         topicField.setText(BaseConfig.topic);
         topicField.setPlaceholder(Text.literal("np. zyro-baza-123"));
@@ -49,21 +64,18 @@ public class BaseScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.literal("Zapisz i testuj powiadomienie"), b -> {
             BaseConfig.topic = topicField.getText().trim();
             BaseConfig.save();
-            BaseAlertClient.sendPush("Test: powiadomienia z Minecrafta działają!");
+            BaseAlertClient.sendPush("Test: powiadomienia z Minecrafta działają!", null);
             BaseAlertClient.msg("§aWysłano testowe powiadomienie.");
-        }).dimensions(cx - 100, y + 126, 200, 20).build());
-    }
-
-    private Text toggleText() {
-        return Text.literal("Alerty: " + (BaseConfig.enabled ? "WŁĄCZONE" : "WYŁĄCZONE"));
+        }).dimensions(cx - 100, s + 148, 200, 20).build());
     }
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
-        ctx.drawCenteredTextWithShadow(textRenderer, title, width / 2, height / 2 - 85, 0xFFFFFF);
-        ctx.drawTextWithShadow(textRenderer, "Temat ntfy (aplikacja na telefon):", width / 2 - 100, height / 2 + 30, 0xAAAAAA);
+        int s = height / 2 - 100;
+        ctx.drawCenteredTextWithShadow(textRenderer, title, width / 2, s - 14, 0xFFFFFF);
+        ctx.drawTextWithShadow(textRenderer, "Temat ntfy (aplikacja na telefon):", width / 2 - 100, s + 112, 0xAAAAAA);
         String status = BaseConfig.hasBase() ? "§aBaza zaznaczona" : "§cBaza niezaznaczona";
-        ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(status), width / 2, height / 2 + 90, 0xFFFFFF);
+        ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(status), width / 2, s + 176, 0xFFFFFF);
     }
 }

@@ -14,10 +14,12 @@ public class BaseConfig {
     private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("zyrobase.properties");
 
     public static String topic = "";
-    public static int radius = 10;      // ile bloków dookoła bazy też liczy się jako "blisko"
+    public static int radius = 10;          // ile bloków dookoła bazy też liczy się jako "blisko"
     public static boolean enabled = true;
-    public static BlockPos pos1 = null; // górny róg
-    public static BlockPos pos2 = null; // dolny róg
+    public static boolean skinPhoto = true; // zdjęcie (skin) gracza w powiadomieniu
+    public static boolean screenshot = true; // zrzut ekranu z gry w osobnym powiadomieniu
+    public static BlockPos pos1 = null;     // górny róg
+    public static BlockPos pos2 = null;     // dolny róg
 
     public static boolean hasBase() { return pos1 != null && pos2 != null; }
 
@@ -29,6 +31,8 @@ public class BaseConfig {
             topic = p.getProperty("topic", "");
             radius = Integer.parseInt(p.getProperty("radius", "10"));
             enabled = Boolean.parseBoolean(p.getProperty("enabled", "true"));
+            skinPhoto = Boolean.parseBoolean(p.getProperty("skinPhoto", "true"));
+            screenshot = Boolean.parseBoolean(p.getProperty("screenshot", "true"));
             if (p.containsKey("p1")) pos1 = parse(p.getProperty("p1"));
             if (p.containsKey("p2")) pos2 = parse(p.getProperty("p2"));
         } catch (Exception e) {
@@ -41,6 +45,8 @@ public class BaseConfig {
         p.setProperty("topic", topic);
         p.setProperty("radius", String.valueOf(radius));
         p.setProperty("enabled", String.valueOf(enabled));
+        p.setProperty("skinPhoto", String.valueOf(skinPhoto));
+        p.setProperty("screenshot", String.valueOf(screenshot));
         if (pos1 != null) p.setProperty("p1", pos1.getX() + "," + pos1.getY() + "," + pos1.getZ());
         if (pos2 != null) p.setProperty("p2", pos2.getX() + "," + pos2.getY() + "," + pos2.getZ());
         try (Writer w = Files.newBufferedWriter(FILE)) {
