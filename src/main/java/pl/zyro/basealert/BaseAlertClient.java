@@ -36,7 +36,7 @@ import java.security.SecureRandom;
 import java.util.Locale;
 
 public class BaseAlertClient implements ClientModInitializer {
-    public static final String VERSION = "1.2.0";
+    public static final String VERSION = "1.3.0";
 
     /** 0 = nic, 1 = czekam na górny róg, 2 = czekam na dolny róg */
     public static int step = 0;
@@ -62,12 +62,13 @@ public class BaseAlertClient implements ClientModInitializer {
         UseBlockCallback.EVENT.register((player, world, hand, hit) -> {
             if (!world.isClient() || step == 0 || hand != Hand.MAIN_HAND) return ActionResult.PASS;
             BlockPos p = hit.getBlockPos();
+            BaseConfig.Profile pr = BaseConfig.profile();
             if (step == 1) {
-                BaseConfig.pos1 = p;
+                pr.pos1 = p;
                 step = 2;
                 msg("§aGórny róg: §f" + p.toShortString() + " §7— teraz kliknij PRAWYM §fDOLNY §7róg bazy.");
             } else {
-                BaseConfig.pos2 = p;
+                pr.pos2 = p;
                 step = 0;
                 BaseConfig.save();
                 msg("§aDolny róg: §f" + p.toShortString() + " §7— baza zaznaczona! Ochrona aktywna.");
@@ -113,13 +114,19 @@ public class BaseAlertClient implements ClientModInitializer {
 
     private static void checkBase(MinecraftClient client) {
         if (client.world == null || client.player == null) return;
-        if (!BaseConfig.enabled || !BaseConfig.hasBase()) return;
+        if (!BaseConfig.enabled) return;
+        BaseConfig.Profile pr = BaseConfig.profile();
+        if (!pr.hasBase()) return;
 
-        BlockPos a = BaseConfig.pos1, b = BaseConfig.pos2;
+        BlockPos a = pr.pos1, b = pr.pos2;
+        int[] r = pr.range; // 0 góra, 1 dół, 2 lewo(-X), 3 prawo(+X), 4 przód(-Z), 5 tył(+Z)
         Box box = new Box(
-                Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()), Math.min(a.getZ(), b.getZ()),
-                Math.max(a.getX(), b.getX()) + 1, Math.max(a.getY(), b.getY()) + 1, Math.max(a.getZ(), b.getZ()) + 1
-        ).expand(BaseConfig.radius);
+                Math.min(a.getX(), b.getX()) - r[2],
+                Math.min(a.getY(), b.getY()) - r[1],
+                Math.min(a.getZ(), b.getZ()) - r[4],
+                Math.max(a.getX(), b.getX()) + 1 + r[3],
+                Math.max(a.getY(), b.getY()) + 1 + r[0],
+                Math.max(a.getZ(), b.getZ()) + 1 + r[5]);
 
         for (PlayerEntity p : client.world.getPlayers()) {
             if (p == client.player) continue;
@@ -150,7 +157,11 @@ public class BaseAlertClient implements ClientModInitializer {
         if (!BaseConfig.validTopic()) return;
 
         StringBuilder sb = new StringBuilder();
+        BaseConfig.Profile pr = BaseConfig.profile();
+        String ip = pr.ip.isBlank() ? BaseConfig.currentKey() : pr.ip;
+        String server = pr.name.isBlank() ? ip : pr.name + " (" + ip + ")";
         sb.append("⚠ Gracz ").append(name).append(" jest blisko Twojej bazy!\n");
+        sb.append("🌐 Serwer: ").append(server).append("\n");
         sb.append("📍 ").append(p.getBlockPos().toShortString())
                 .append("  (").append(Math.round(p.distanceTo(client.player))).append(" bloków od Ciebie)\n");
         sb.append("❤ Serca: ").append(num(p.getHealth() / 2f)).append("/").append(num(p.getMaxHealth() / 2f));

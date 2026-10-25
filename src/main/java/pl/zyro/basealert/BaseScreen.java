@@ -17,14 +17,17 @@ import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 
 public class BaseScreen extends Screen {
-    private static final int PW = 350, PH = 236;
-    private static final int TAB_COUNT = 4;
-    private static final String[] TABS = {"Główna", "Telefon", "Bezpieczni", "Ustawienia"};
+    private static final int PW = 350, PH = 246;
+    private static final int TAB_COUNT = 5;
+    private static final int T_MAIN = 0, T_PHONE = 1, T_RANGE = 2, T_SAFE = 3, T_SET = 4;
+    private static final String[] TABS = {"Główna", "Telefon", "Zasięg", "Bezpieczni", "Ustawienia"};
     private static final String[] STYLES = {"Ciemny", "Bardzo ciemny", "Szkło"};
     private static final int[] PANEL_BG = {0xE6101418, 0xF4000000, 0x9A101418};
     private static final int[] SWATCHES = {
             0x4DA6FF, 0x55FF55, 0xFF5555, 0xFFAA00, 0xFFD43B,
             0xAA66FF, 0xFF66CC, 0x55FFFF, 0xFFFFFF, 0x9AA0A6};
+    private static final String[] RANGE_NAMES = {"Góra", "Dół", "Lewo", "Prawo", "Przód", "Tył"};
+    private static final int[][] RANGE_ORDER = {{0, 1}, {2, 3}, {4, 5}};
     private static final int ROWS_PER_PAGE = 6;
 
     private static final String[] SHIELD = {
@@ -43,8 +46,9 @@ public class BaseScreen extends Screen {
 
     private static int tab = 0;
     private static int safePage = 0;
+    private static int lastAll = 10;
 
-    private TextFieldWidget topicField, safeField, hexField;
+    private TextFieldWidget topicField, nameField, ipField, safeField, hexField;
     private String safeMsg = "";
     private QrCode qr;
     private String qrFor = "";
@@ -127,45 +131,51 @@ public class BaseScreen extends Screen {
 
         int cy = y0 + 54;
         switch (tab) {
-            case 0 -> buildMain(x0, cy);
-            case 1 -> buildPhone(x0, cy);
-            case 2 -> buildSafe(x0, cy);
+            case T_MAIN -> buildMain(x0, cy);
+            case T_PHONE -> buildPhone(x0, cy);
+            case T_RANGE -> buildRange(x0, cy);
+            case T_SAFE -> buildSafe(x0, cy);
             default -> buildSettings(x0, cy);
         }
     }
 
     private void buildMain(int x0, int cy) {
         addDrawableChild(ButtonWidget.builder(Text.literal("Zaznacz bazę"), b -> {
+            BaseConfig.Profile pr = BaseConfig.profile();
             BaseAlertClient.step = 1;
-            BaseConfig.pos1 = null;
-            BaseConfig.pos2 = null;
+            pr.pos1 = null;
+            pr.pos2 = null;
             close();
             BaseAlertClient.msg("§aKliknij PRAWYM przyciskiem GÓRNY róg swojej bazy.");
-        }).dimensions(x0 + 10, cy + 60, 162, 20).build());
+        }).dimensions(x0 + 10, cy + 72, 162, 20).build());
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Szybka baza (±16 bloków)"), b -> {
             MinecraftClient mc = MinecraftClient.getInstance();
             if (mc.player == null) return;
+            BaseConfig.Profile pr = BaseConfig.profile();
             BlockPos c = mc.player.getBlockPos();
-            BaseConfig.pos1 = c.add(-16, 16, -16);
-            BaseConfig.pos2 = c.add(16, -4, 16);
+            pr.pos1 = c.add(-16, 16, -16);
+            pr.pos2 = c.add(16, -4, 16);
             BaseConfig.save();
             BaseAlertClient.msg("§aBaza ustawiona wokół Ciebie (±16 bloków).");
-        }).dimensions(x0 + 178, cy + 60, 162, 20).build());
+        }).dimensions(x0 + 178, cy + 72, 162, 20).build());
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Usuń bazę"), b -> {
-            BaseConfig.pos1 = null;
-            BaseConfig.pos2 = null;
+            BaseConfig.Profile pr = BaseConfig.profile();
+            pr.pos1 = null;
+            pr.pos2 = null;
             BaseConfig.save();
-            BaseAlertClient.msg("§eBaza usunięta.");
-        }).dimensions(x0 + 10, cy + 82, 162, 20).build());
+            BaseAlertClient.msg("§eBaza usunięta (tylko na tym serwerze).");
+        }).dimensions(x0 + 10, cy + 94, 162, 20).build());
 
-        addToggle(x0 + 178, cy + 82, 162, "Alarm", () -> BaseConfig.enabled, v -> BaseConfig.enabled = v);
-        addToggle(x0 + 10, cy + 104, 162, "Zdjęcie gracza", () -> BaseConfig.skinPhoto, v -> BaseConfig.skinPhoto = v);
-        addToggle(x0 + 178, cy + 104, 162, "Zrzut ekranu", () -> BaseConfig.screenshot, v -> BaseConfig.screenshot = v);
+        addToggle(x0 + 178, cy + 94, 162, "Alarm", () -> BaseConfig.enabled, v -> BaseConfig.enabled = v);
+        addToggle(x0 + 10, cy + 116, 162, "Zdjęcie gracza", () -> BaseConfig.skinPhoto, v -> BaseConfig.skinPhoto = v);
+        addToggle(x0 + 178, cy + 116, 162, "Zrzut ekranu", () -> BaseConfig.screenshot, v -> BaseConfig.screenshot = v);
     }
 
     private void buildPhone(int x0, int cy) {
+        BaseConfig.Profile pr = BaseConfig.profile();
+
         topicField = new TextFieldWidget(textRenderer, x0 + 10, cy + 12, 128, 18, Text.literal("temat"));
         topicField.setMaxLength(64);
         topicField.setTextPredicate(s -> s.matches("[A-Za-z0-9_-]*"));
@@ -185,22 +195,101 @@ public class BaseScreen extends Screen {
                 MinecraftClient.getInstance().keyboard.setClipboard(BaseAlertClient.subscribeLink());
                 BaseAlertClient.msg("§aLink skopiowany do schowka.");
             }
-        }).dimensions(x0 + 10, cy + 36, 91, 20).build());
+        }).dimensions(x0 + 10, cy + 34, 91, 20).build());
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Wyślij test"), b -> {
             BaseConfig.save();
             BaseAlertClient.sendPush("✔ Test: telefon jest połączony z Minecraftem!", null);
-        }).dimensions(x0 + 103, cy + 36, 91, 20).build());
+        }).dimensions(x0 + 103, cy + 34, 91, 20).build());
 
         addDrawableChild(ButtonWidget.builder(qrText(), b -> {
             BaseConfig.qrApp = !BaseConfig.qrApp;
             b.setMessage(qrText());
             BaseConfig.save();
-        }).dimensions(x0 + 10, cy + 60, 184, 20).build());
+        }).dimensions(x0 + 10, cy + 57, 184, 20).build());
+
+        // nazwa i IP serwera (osobne dla każdego serwera)
+        nameField = new TextFieldWidget(textRenderer, x0 + 10, cy + 94, 184, 18, Text.literal("nazwa"));
+        nameField.setMaxLength(32);
+        nameField.setText(pr.name);
+        nameField.setPlaceholder(Text.literal("np. Survival"));
+        nameField.setChangedListener(s -> pr.name = s.trim());
+        addDrawableChild(nameField);
+
+        ipField = new TextFieldWidget(textRenderer, x0 + 10, cy + 124, 128, 18, Text.literal("ip"));
+        ipField.setMaxLength(64);
+        ipField.setTextPredicate(s -> s.matches("[A-Za-z0-9._:-]*"));
+        ipField.setText(pr.ip);
+        ipField.setPlaceholder(Text.literal("np. mc.serwer.pl"));
+        ipField.setChangedListener(s -> pr.ip = s.trim());
+        addDrawableChild(ipField);
+
+        addDrawableChild(ButtonWidget.builder(Text.literal("Wykryj"), b -> {
+            String key = BaseConfig.currentKey();
+            if (!key.equals("offline") && !key.equals("singleplayer")) {
+                pr.ip = key;
+                ipField.setText(key);
+                BaseConfig.save();
+            }
+        }).dimensions(x0 + 142, cy + 123, 52, 20).build());
     }
 
     private static Text qrText() {
         return Text.literal("Kod QR: " + (BaseConfig.qrApp ? "aplikacja ntfy" : "przeglądarka"));
+    }
+
+    private void buildRange(int x0, int cy) {
+        BaseConfig.Profile pr = BaseConfig.profile();
+        for (int r = 0; r < RANGE_ORDER.length; r++) {
+            for (int c = 0; c < 2; c++) {
+                addRangeCell(x0 + 10 + c * 170, cy + 16 + r * 26, pr, RANGE_ORDER[r][c]);
+            }
+        }
+
+        TextFieldWidget all = new TextFieldWidget(textRenderer, x0 + 116, cy + 99, 50, 18, Text.literal("wszystkie"));
+        all.setMaxLength(3);
+        all.setTextPredicate(s -> s.matches("[0-9]{0,3}"));
+        all.setText(String.valueOf(lastAll));
+        addDrawableChild(all);
+
+        addDrawableChild(ButtonWidget.builder(Text.literal("Ustaw"), b -> {
+            String t = all.getText();
+            if (t.isEmpty()) return;
+            int v = Math.min(BaseConfig.MAX_RANGE, Integer.parseInt(t));
+            lastAll = v;
+            java.util.Arrays.fill(pr.range, v);
+            BaseConfig.save();
+            rebuild();
+        }).dimensions(x0 + 170, cy + 98, 60, 20).build());
+    }
+
+    private void addRangeCell(int x, int y, BaseConfig.Profile pr, int idx) {
+        TextFieldWidget f = new TextFieldWidget(textRenderer, x + 66, y + 1, 50, 18, Text.literal(RANGE_NAMES[idx]));
+        f.setMaxLength(3);
+        f.setTextPredicate(s -> s.matches("[0-9]{0,3}"));
+        f.setText(String.valueOf(pr.range[idx]));
+        f.setChangedListener(s -> {
+            if (s.isEmpty()) return;
+            int v = Integer.parseInt(s);
+            if (v > BaseConfig.MAX_RANGE) {
+                f.setText(String.valueOf(BaseConfig.MAX_RANGE));
+                return;
+            }
+            pr.range[idx] = v;
+        });
+        addDrawableChild(f);
+
+        addDrawableChild(ButtonWidget.builder(Text.literal("-"), b -> {
+            pr.range[idx] = Math.max(0, pr.range[idx] - 10);
+            f.setText(String.valueOf(pr.range[idx]));
+            BaseConfig.save();
+        }).dimensions(x + 42, y, 22, 20).build());
+
+        addDrawableChild(ButtonWidget.builder(Text.literal("+"), b -> {
+            pr.range[idx] = Math.min(BaseConfig.MAX_RANGE, pr.range[idx] + 10);
+            f.setText(String.valueOf(pr.range[idx]));
+            BaseConfig.save();
+        }).dimensions(x + 118, y, 22, 20).build());
     }
 
     private void buildSafe(int x0, int cy) {
@@ -266,15 +355,14 @@ public class BaseScreen extends Screen {
         addToggle(x0 + 10, cy + 62, 162, "Dźwięk alarmu", () -> BaseConfig.sound, v -> BaseConfig.sound = v);
         addToggle(x0 + 178, cy + 62, 162, "Baner na ekranie", () -> BaseConfig.banner, v -> BaseConfig.banner = v);
 
-        addStepper(x0, cy + 88, 0, 64, 2, () -> BaseConfig.radius, v -> BaseConfig.radius = v);
-        addStepper(x0, cy + 112, 10, 600, 10, () -> BaseConfig.cooldownSec, v -> BaseConfig.cooldownSec = v);
+        addStepper(x0, cy + 88, 10, 600, 10, () -> BaseConfig.cooldownSec, v -> BaseConfig.cooldownSec = v);
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Przywróć domyślny wygląd"), b -> {
             BaseConfig.accent = 0x4DA6FF;
             BaseConfig.panelStyle = 0;
             BaseConfig.save();
             rebuild();
-        }).dimensions(x0 + 10, cy + 140, 330, 20).build());
+        }).dimensions(x0 + 10, cy + 116, 330, 20).build());
     }
 
     private static Text styleText() {
@@ -337,9 +425,10 @@ public class BaseScreen extends Screen {
 
         // tytuł i status
         ctx.drawTextWithShadow(textRenderer, "Zyro Base Alert", x0 + 25, y0 + 7, 0xFFFFFFFF);
-        boolean armed = BaseConfig.enabled && BaseConfig.hasBase();
+        boolean hasBase = BaseConfig.hasBase();
+        boolean armed = BaseConfig.enabled && hasBase;
         boolean pulse = (System.currentTimeMillis() / 500) % 2 == 0;
-        String status = armed ? "CHRONIONA" : (BaseConfig.hasBase() ? "ALARM WYŁĄCZONY" : "BRAK BAZY");
+        String status = armed ? "CHRONIONA" : (hasBase ? "ALARM WYŁĄCZONY" : "BRAK BAZY");
         int dot = armed ? (pulse ? 0xFF55FF55 : 0xFF2E8B2E) : 0xFFFF5555;
         int sw = textRenderer.getWidth(status);
         ctx.drawTextWithShadow(textRenderer, status, x0 + PW - 10 - sw, y0 + 7, dot);
@@ -349,22 +438,29 @@ public class BaseScreen extends Screen {
         ctx.drawTextWithShadow(textRenderer, "K - menu  •  v" + BaseAlertClient.VERSION, x0 + 10, y0 + PH - 12, 0xFF777777);
 
         switch (tab) {
-            case 0 -> renderMain(ctx, x0, cy, acc);
-            case 1 -> renderPhone(ctx, x0, cy, acc);
-            case 2 -> renderSafe(ctx, x0, cy, acc);
-            default -> renderSettings(ctx, x0, cy, acc);
+            case T_MAIN -> renderMain(ctx, x0, cy, acc);
+            case T_PHONE -> renderPhone(ctx, x0, cy, acc);
+            case T_RANGE -> renderRange(ctx, x0, cy);
+            case T_SAFE -> renderSafe(ctx, x0, cy, acc);
+            default -> renderSettings(ctx, x0, cy);
         }
     }
 
     private void renderMain(DrawContext ctx, int x0, int cy, int acc) {
+        BaseConfig.Profile pr = BaseConfig.profile();
+
         // karta statusu
-        ctx.fill(x0 + 10, cy, x0 + PW - 10, cy + 54, 0x66000000);
-        ctx.fill(x0 + 10, cy, x0 + 12, cy + 54, acc);
+        ctx.fill(x0 + 10, cy, x0 + PW - 10, cy + 66, 0x66000000);
+        ctx.fill(x0 + 10, cy, x0 + 12, cy + 66, acc);
         int tx = x0 + 18;
 
+        String ip = pr.ip.isBlank() ? BaseConfig.currentKey() : pr.ip;
+        String srv = pr.name.isBlank() ? ip : pr.name;
+        ctx.drawTextWithShadow(textRenderer, "Serwer: §f" + srv + " §7(" + ip + ")", tx, cy + 5, 0xFFFFFFFF);
+
         String base;
-        if (BaseConfig.hasBase()) {
-            BlockPos a = BaseConfig.pos1, b = BaseConfig.pos2;
+        if (pr.hasBase()) {
+            BlockPos a = pr.pos1, b = pr.pos2;
             int dx = Math.abs(a.getX() - b.getX()) + 1;
             int dy = Math.abs(a.getY() - b.getY()) + 1;
             int dz = Math.abs(a.getZ() - b.getZ()) + 1;
@@ -374,27 +470,28 @@ public class BaseScreen extends Screen {
         } else if (BaseAlertClient.step == 2) {
             base = "§eKliknij dolny róg bazy";
         } else {
-            base = "§cNiezaznaczona";
+            base = "§cNiezaznaczona na tym serwerze";
         }
-        ctx.drawTextWithShadow(textRenderer, "Baza: " + base, tx, cy + 5, 0xFFFFFFFF);
+        ctx.drawTextWithShadow(textRenderer, "Baza: " + base, tx, cy + 17, 0xFFFFFFFF);
 
         String phone = BaseConfig.validTopic() ? "§apołączony §7(temat: " + BaseConfig.topic + ")" : "§cnie ustawiony §7(zakładka Telefon)";
-        ctx.drawTextWithShadow(textRenderer, "Telefon: " + phone, tx, cy + 17, 0xFFFFFFFF);
+        ctx.drawTextWithShadow(textRenderer, "Telefon: " + phone, tx, cy + 29, 0xFFFFFFFF);
 
-        int safe = BaseConfig.safePlayers.size();
-        ctx.drawTextWithShadow(textRenderer, "Bezpieczni gracze: §f" + safe, tx, cy + 29, 0xFFCCCCCC);
-        ctx.drawTextWithShadow(textRenderer, "Promień ochrony: §f+" + BaseConfig.radius + " bloków", tx, cy + 41, 0xFFCCCCCC);
+        ctx.drawTextWithShadow(textRenderer, "Bezpieczni gracze: §f" + BaseConfig.safePlayers.size(), tx, cy + 41, 0xFFCCCCCC);
 
-        wrapped(ctx, "Jak zaznaczyć bazę: kliknij \"Zaznacz bazę\", potem PRAWYM przyciskiem górny róg, a na końcu dolny róg bazy.",
-                x0 + 10, cy + 132, 330, 0xFF999999);
+        StringBuilder rg = new StringBuilder();
+        for (int i = 0; i < 6; i++) rg.append(i == 0 ? "" : "/").append(pr.range[i]);
+        ctx.drawTextWithShadow(textRenderer, "Zasięg G/D/L/P/Prz/T: §f" + rg, tx, cy + 53, 0xFFCCCCCC);
+
+        wrapped(ctx, "Baza i zasięg są osobne dla każdego serwera. Jak zaznaczyć: kliknij \"Zaznacz bazę\", potem PRAWYM przyciskiem górny i dolny róg.",
+                x0 + 10, cy + 142, 330, 0xFF999999);
     }
 
     private void renderPhone(DrawContext ctx, int x0, int cy, int acc) {
         ctx.drawTextWithShadow(textRenderer, "Temat (działa jak hasło):", x0 + 10, cy, 0xFFAAAAAA);
-
-        int y = wrapped(ctx, "1. Zainstaluj aplikację ntfy (Google Play / App Store).", x0 + 10, cy + 88, 184, 0xFFDDDDDD);
-        y = wrapped(ctx, "2. Zeskanuj kod QR aparatem telefonu albo wpisz ten sam temat w aplikacji.", x0 + 10, y + 2, 184, 0xFFDDDDDD);
-        wrapped(ctx, "3. Kliknij \"Wyślij test\" - telefon powinien zadzwonić.", x0 + 10, y + 2, 184, 0xFFDDDDDD);
+        ctx.drawTextWithShadow(textRenderer, "Nazwa tego serwera:", x0 + 10, cy + 83, 0xFFAAAAAA);
+        ctx.drawTextWithShadow(textRenderer, "IP serwera (idzie w alarmie):", x0 + 10, cy + 113, 0xFFAAAAAA);
+        wrapped(ctx, "Zainstaluj ntfy na telefonie, zeskanuj kod QR i kliknij \"Wyślij test\".", x0 + 10, cy + 148, 200, 0xFF999999);
 
         int bx = x0 + PW - 10 - 124, by = cy + 10;
         ctx.fill(bx - 2, by - 2, bx + 126, by + 126, acc);
@@ -436,8 +533,23 @@ public class BaseScreen extends Screen {
         }
     }
 
+    private void renderRange(DrawContext ctx, int x0, int cy) {
+        ctx.drawTextWithShadow(textRenderer, "Odległość od krawędzi bazy, z której wykrywam gracza (0-" + BaseConfig.MAX_RANGE + " bloków):",
+                x0 + 10, cy + 2, 0xFFAAAAAA);
+        for (int r = 0; r < RANGE_ORDER.length; r++) {
+            for (int c = 0; c < 2; c++) {
+                int x = x0 + 10 + c * 170, y = cy + 16 + r * 26;
+                ctx.drawTextWithShadow(textRenderer, RANGE_NAMES[RANGE_ORDER[r][c]], x, y + 6, 0xFFFFFFFF);
+            }
+        }
+        ctx.drawTextWithShadow(textRenderer, "Wszystkie strony:", x0 + 10, cy + 105, 0xFFDDDDDD);
+        wrapped(ctx, "Lewo = zachód (-X), Prawo = wschód (+X), Przód = północ (-Z), Tył = południe (+Z). "
+                        + "Uwaga: gra pokazuje innych graczy tylko w zasięgu renderowania serwera (zwykle 64-128 bloków).",
+                x0 + 10, cy + 128, 330, 0xFF999999);
+    }
+
     private void renderSafe(DrawContext ctx, int x0, int cy, int acc) {
-        wrapped(ctx, "Wpisz nick gracza. Gdy wejdzie do Twojej bazy, nie dostaniesz alarmu ani powiadomienia.",
+        wrapped(ctx, "Wpisz nick gracza. Gdy wejdzie do Twojej bazy, nie dostaniesz alarmu ani powiadomienia (na wszystkich serwerach).",
                 x0 + 10, cy - 2, 330, 0xFFAAAAAA);
 
         List<String> list = BaseConfig.safePlayers;
@@ -458,7 +570,7 @@ public class BaseScreen extends Screen {
         }
     }
 
-    private void renderSettings(DrawContext ctx, int x0, int cy, int acc) {
+    private void renderSettings(DrawContext ctx, int x0, int cy) {
         ctx.drawTextWithShadow(textRenderer, "Kolor interfejsu (kliknij kolor lub wpisz HEX):", x0 + 10, cy, 0xFFAAAAAA);
         for (int i = 0; i < SWATCHES.length; i++) {
             int sx = x0 + 10 + i * 33;
@@ -468,15 +580,13 @@ public class BaseScreen extends Screen {
             ctx.fill(sx, sy, sx + 24, sy + 22, 0xFF000000 | SWATCHES[i]);
         }
 
-        ctx.drawTextWithShadow(textRenderer, "Promień wokół bazy:", x0 + 10, cy + 94, 0xFFDDDDDD);
-        ctx.drawCenteredTextWithShadow(textRenderer, "+" + BaseConfig.radius + " bl.", x0 + 247, cy + 94, 0xFFFFFFFF);
-        ctx.drawTextWithShadow(textRenderer, "Odstęp między alarmami:", x0 + 10, cy + 118, 0xFFDDDDDD);
-        ctx.drawCenteredTextWithShadow(textRenderer, BaseConfig.cooldownSec + " s", x0 + 247, cy + 118, 0xFFFFFFFF);
+        ctx.drawTextWithShadow(textRenderer, "Odstęp między alarmami:", x0 + 10, cy + 94, 0xFFDDDDDD);
+        ctx.drawCenteredTextWithShadow(textRenderer, BaseConfig.cooldownSec + " s", x0 + 247, cy + 94, 0xFFFFFFFF);
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        if (tab == 3 && button == 0) {
+        if (tab == T_SET && button == 0) {
             int x0 = left(), sy = top() + 54 + 11;
             for (int i = 0; i < SWATCHES.length; i++) {
                 int sx = x0 + 10 + i * 33;
@@ -493,7 +603,7 @@ public class BaseScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (tab == 2 && safeField != null && safeField.isFocused()
+        if (tab == T_SAFE && safeField != null && safeField.isFocused()
                 && (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)) {
             addSafeFromField();
             return true;
